@@ -1,4 +1,4 @@
-from bs4 import BeautifulSoup, NavigableString 
+from bs4 import BeautifulSoup 
 import urllib2
 
 def get_number_of_pages(url) :
@@ -44,7 +44,6 @@ if __name__ == "__main__":
     bills = open('bills.csv','w')
 
     for i in range(number_pages) :
-    # for i in range(1) :
 
         if i+1 == percent_total:
             percent_done += 1
@@ -71,12 +70,10 @@ if __name__ == "__main__":
 
                     bill_text = get_bill_text_by_url(BASE_URL + bill_text_link)
 
-                    current_bill = open(BILL_DIRECTORY + bill_name, 'w')
+                    current_bill = open(BILL_DIRECTORY + bill_name + '.txt', 'w')
                     current_bill.write(bill_text)
                     bills.write(BILL_DIRECTORY + bill_name + '\n')
 
                 else : bills.write('NO TEXT AVAILABLE\n')
-
-                break
 
     print 'Done!'
