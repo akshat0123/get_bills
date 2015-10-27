@@ -20,4 +20,4 @@ Clone the repository, and edit the `BILL_DIRECTORY` field to specify the file
 where you would like the bill text files to be placed. 
 
 ##Notes
-Stay tuned for a multi-threaded version!
+Stay tuned for a multi-process version!
