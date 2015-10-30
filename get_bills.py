@@ -1,79 +1,87 @@
 from bs4 import BeautifulSoup 
-import urllib2
+import urllib2, threading, sys, time
+
+def get_soup(url) :
+    try : 
+        request = urllib2.urlopen(url)
+        soup    = BeautifulSoup(request.read())
+        request.close()
+    except urllib2.HTTPError, e: soup = BeautifulSoup(e.fp.read())
+    return soup
 
 def get_number_of_pages(url) :
-    request = urllib2.urlopen(url)
-    soup = BeautifulSoup(request) 
-    request.close()
-
-    get_number_pages = str(soup.find('span', {'class':'results-number'})).split(' ')
-    for i in range(len(get_number_pages)-1, 0, -1) :
-        if get_number_pages[i] != '</span>' and get_number_pages[i] != '':
-            return int(get_number_pages[i].replace(',',''))/250
+    soup    = get_soup(url) 
+    num_pgs = str(soup.find('span', {'class':'results-number'})).split(' ')
+    for i in range(len(num_pgs)-1, 0, -1) :
+        if num_pgs[i] != '</span>' and num_pgs[i] != '':
+            return int(num_pgs[i].replace(',',''))/250
 
 def get_bill_info(bill_html) :
-    return (bill_html.h2.a.contents[0], (bill_html.h2.a.get('href')+'/text'))
+    return (bill_html.a.contents[0], (bill_html.a.get('href')+'/text'))
 
-def get_bill_text_link(url) :
-    request  = urllib2.urlopen(url + '/text')
-    soup     = BeautifulSoup(request)
-    request.close()
-    link     = soup.find('ul', {'class':'textFormats'})
-    if link != None : return link.findAll('li')[1:2][0].a.get('href')
-    else : return None
+def get_bill_text(url) :
+    soup     = get_soup(url)
+    text     = soup.find('div', {'class':'generated-html-container'})
+    if text != None : text = text.get_text().encode('utf-8')
+    return text
 
-def get_bill_text_by_url(url) :
-    request = urllib2.urlopen(url)
-    soup = BeautifulSoup(request)
-    request.close()
-    return soup.find('body').get_text().encode('utf-8')
+def process_bill(bill, bills) :
+    bill_name, bill_address = get_bill_info(bill)
+    bills.write("%s,%s," % (bill_name, bill_address))
+
+    bill_text = get_bill_text(bill_address)
+
+    if bill_text != None :
+        current_bill = open(BILL_DIRECTORY + bill_name + '.txt','w')
+        current_bill.write(bill_text)
+        bills.write("%s,%s,%s\n" %(bill_name, bill_address,(BILL_DIRECTORY+bill_name+'.txt')))
+    else : 
+        bills.write("%s,%s,%s\n" %(bill_name, bill_address,'NO TEXT AVAILABLE'))
 
 if __name__ == "__main__":
 
-    BASE_URL    = "https://www.congress.gov"
-    BASE_SEARCH = "https://www.congress.gov/legislation?pageSize=250&page="
+    sys.setrecursionlimit(2000)
+
+    BASE_URL       = "https://www.congress.gov"
+    BASE_SEARCH    = "https://www.congress.gov/legislation?pageSize=250&page="
     BILL_DIRECTORY = "/YOUR BILL DIRECTORY HERE/"
-    page_number = 1
-    bills = []
+    START_TIME     = time.time()
 
-    number_pages = get_number_of_pages(BASE_SEARCH + str(page_number))
-
-    print 'Getting Bills: [          ]'
-    percent_total = number_pages/10
-    percent_done  = 0
+    number_pages = get_number_of_pages(BASE_SEARCH + '1')
     bills = open('bills.csv','w')
+
+    # OUTPUT
+    sys.stdout.write('\nRetrieving legislation...\n\n')
 
     for i in range(number_pages) :
 
-        if i+1 == percent_total:
-            percent_done += 1
-            print 'Getting Bills: [' + ('#'*percent_done) +\
-                  (' '*(10-percent_done)) + ']' + ' page ' +\
-                  str(i+1) + ' of ' + str(number_pages)
-            percent_total += percent_total
+        progress_bar = '\r    page %d of %d: ' % (i+1, number_pages)
+        sys.stdout.write(progress_bar)
 
-        request = urllib2.urlopen(BASE_SEARCH + str(page_number + i))
-        soup = BeautifulSoup(request)
-        request.close()
+        soup        = get_soup(BASE_SEARCH + str(i+1))
+        dirty_bills = soup.find('ol', {'class':'results_list'}).findAll('h2')
+        bill_count  = 0
 
-        dirty_bills = soup.find('ol', {'class':'results_list'}).findAll('li')
+        for b1,b2,b3,b4,b5,b6,b7,b8,b9,b10 in (dirty_bills[i:i+10] for i in range (0,250,10)) :
 
-        for dirty_bill in dirty_bills :
-            if dirty_bill.find('h2') != None :
+            dbs = [b1,b2,b3,b4,b5,b6,b7,b8,b9,b10]
+            threads = []
 
-                bill_name, bill_address = get_bill_info(dirty_bill)
-                bills.write("%s,%s," % (bill_name, bill_address))
+            bill_count += 10
+            if bill_count % 50 == 0 :
+                progress_bar += '##' 
+                sys.stdout.write(progress_bar)
+                sys.stdout.flush()
 
-                bill_text_link = get_bill_text_link(bill_address)
+            delay_start = time.time()
+            for db in dbs :
+                thread = threading.Thread(target=process_bill, args=(db,bills))
+                threads.append(thread) 
+                thread.start()
 
-                if bill_text_link != None :
+            for thread in threads : thread.join()
 
-                    bill_text = get_bill_text_by_url(BASE_URL + bill_text_link)
+            if (time.time() - delay_start) < 2.0 : time.sleep(2)
 
-                    current_bill = open(BILL_DIRECTORY + bill_name + '.txt', 'w')
-                    current_bill.write(bill_text)
-                    bills.write(BILL_DIRECTORY + bill_name + '\n')
-
-                else : bills.write('NO TEXT AVAILABLE\n')
-
-    print 'Done!'
+    sys.stdout.write('\nDone!\n')
+    sys.stdout.write('Retrieval took %s seconds\n' % (time.time() - START_TIME))
