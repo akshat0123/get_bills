@@ -7,7 +7,7 @@ Bear in mind, the script is written in a single-thread, and there are around
 400,000 pieces of legislation on congress.gov, so it'll take a while to run (I
 haven't downloaded all pages of links worth, but I'd estimate around 100 hrs at
 least, based on how long it takes for 1-5 pages 0f 250 links each), and you're
-probably going to need around 7-8 gigabytes (give or take a hundred or so
+probably going to need a gigabyte or two (give or take a hundred or so
 megabytes) of room. Running the program will also create two additional files,
 'bills.csv', and 'records.txt', which contain some information about the bills
 being downloaded.
