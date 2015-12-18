@@ -29,23 +29,31 @@ def get_bill_info(bill) :
     title  = bill.find('h2')
     name   = bill.find('h3')
     b_type = bill.find('span', {'class':'visualIndicator'})
-    check, spons, comms, addr  = False, None, None, None
+    check, spons, comms, addr, subjects = False, None, None, None, None
     if title != None :
-        check  = True
-        addr   = title.a.get('href') + '/text'
-        title  = title.find('a').get_text().encode('utf-8')
-        b_type = b_type.get_text().encode('utf-8').strip()
-        spons  = bill.find('table').a.get_text().encode('utf-8')
-        comms  = bill.find('table').findAll('tr')[1]
+        check    = True
+        addr     = title.a.get('href') + '/text'
+        subjects = title.a.get('href') + '/subjects'
+        title    = title.find('a').get_text().encode('utf-8')
+        b_type   = b_type.get_text().encode('utf-8').strip()
+        spons    = bill.find('table').a.get_text().encode('utf-8')
+        comms    = bill.find('table').findAll('tr')[1]
         if (comms.th.get_text().encode('utf-8') == 'Committees:') : comms = comms.td.get_text().encode('utf-8')
         else : comms = None
         name = 'NO NAME' if name == None else name.get_text().encode('utf-8');
 
-    return(check, title, name, b_type, spons, comms, addr)
+    return(check, title, name, b_type, spons, comms, addr, subjects)
+
+def get_bill_subjects(url) :
+    soup = get_soup(url)
+    text = soup.find('ul', { 'class' : 'plain margin7' })
+    if text != None : text = text.get_text(separator=u',').encode('utf-8')
+    return text 
 
 def get_bill_text(url) :
-    soup     = get_soup(url)
-    text     = soup.find('div', {'class': re.compile('generated-html-*')})
+    soup = get_soup(url) 
+    text = soup.find('div', {'class': re.compile('generated-html-*')})
+    if text == None : text = soup.find('div', { 'class' : 'wrapper_std' }).find('pre')
     if text != None : text = text.get_text().encode('utf-8')
     return text
 
@@ -53,16 +61,20 @@ def get_bill_text(url) :
 # bill's text in the bill directory in a subdirectory corresponding to which
 # page it was found on congress.gov
 def process_bill(bill, bills, path) :
-    check, title, name, b_type, spons, comms, addr = get_bill_info(bill)
+    check, title, name, b_type, spons, comms, addr, subjects = get_bill_info(bill)
     page = path.split('page_', 1)[1]
     if check == True :
         bill_text = get_bill_text(addr)
         if bill_text != None :
+            bill_subjects = None
+            if b_type != 'AMENDMENT' : bill_subjects = get_bill_subjects(subjects)
+            if bill_subjects != None : bill_subjects = '(' + bill_subjects + ')'
             current_bill = open(path + title + '.txt','w')
             current_bill.write(bill_text)
-            bills.write("%s,%s,%s,%s,%s,%s,%s\n" % (page,title,name,b_type,spons,comms,(path + title + '.txt')))
+            if bill_subjects != None : bills.write("%s,%s,%s,%s,%s,%s,%s,%s\n" % (page,title,name,b_type,spons,comms,(path + title + '.txt'),bill_subjects))
+            else                     : bills.write("%s,%s,%s,%s,%s,%s,%s,%s\n" % (page,title,name,b_type,spons,comms,(path + title + '.txt'),'NO SUBJECTS AVAILABLE'))
         else : 
-            bills.write("%s,%s,%s,%s,%s,%s,%s\n" %(page,title,name,b_type,spons,comms,'NO TEXT AVAILABLE'))
+            bills.write("%s,%s,%s,%s,%s,%s,%s,%s\n" %(page,title,name,b_type,spons,comms,'NO TEXT AVAILABLE','NO SUBJECTS AVAILABLE'))
 
 if __name__ == "__main__":
 
@@ -83,9 +95,9 @@ if __name__ == "__main__":
     #                'bills.csv'
     # records      : simply stores the number of seconds it takes for the
     #                program to retrieve a page (250 bills) 
-    start_page   = 28 
-    number_pages = 30 
-    thread_count = 10
+    start_page   = 776 
+    number_pages = 780 
+    thread_count = 25 
     thread_lcm   = lcm(thread_count,25)
     hash_num     = thread_lcm/25
     bills        = open('bills.csv','a')
