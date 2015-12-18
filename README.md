@@ -33,3 +33,17 @@ once - either due to getting your ip blocked, or just because, despite the fact
 that this is multi-threaded (at least multithreading as far as python supports
 multithreading... look up python multithreading if you want to know more
 about that), it will still take a looong time to run.
+
+##Supplements
+`create_filelist.py` is a simple script that creates a filelist and a bash
+script to be run by stanford corenlp to tag all the files retrieved by
+`get_bills.py`. Just place it in the same directory where the stanford corenlp
+directory as well as the directory of bills is placed and it will generate a
+bash script that will tag the the bills once it is placed in the stanford
+corenlp directory and run from there.
+
+`analysis.py` performs keyword extraction on all of the tagged bils created by
+running the script created by `create_filelist.py`, and creates two plots
+displaying the performance of multiple methods of keyword extraction. Once it is
+placed in the same directory as the tagged bills directory, it can be run as is
+(`python analysis.py`).
